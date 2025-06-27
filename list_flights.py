@@ -5,22 +5,32 @@ import argparse
 from rich.console import Console
 from rich.table import Table
 
-def get_airfield_id(airfield_name):
+def get_airfield_id(airfield_name, debug=False):
     search_url = "https://api.weglide.org/v1/search"
     search_payload = {
         "search_items": [{"key": "name", "value": airfield_name}],
         "documents": ["airport"]
     }
+    if debug:
+        print(f"DEBUG: Calling {search_url} with payload: {json.dumps(search_payload)}")
     response = httpx.post(search_url, json=search_payload)
+    if debug:
+        print(f"DEBUG: Response status: {response.status_code}")
+        print(f"DEBUG: Response body: {response.text}")
     if response.status_code == 200:
         results = response.json()
         if results and len(results) > 0:
             return results[0]['id']
     return None
 
-def list_flights(airfield_id, skip=0, limit=100):
+def list_flights(airfield_id, skip=0, limit=100, debug=False):
     flights_url = f"https://api.weglide.org/v1/flight?airport_id_in={airfield_id}&skip={skip}&limit={limit}"
+    if debug:
+        print(f"DEBUG: Calling {flights_url}")
     response = httpx.get(flights_url)
+    if debug:
+        print(f"DEBUG: Response status: {response.status_code}")
+        print(f"DEBUG: Response body: {response.text}")
     if response.status_code == 200:
         return response.json()
     return None
@@ -29,18 +39,20 @@ if __name__ == "__main__":
     console = Console()
 
     parser = argparse.ArgumentParser(description="List flights from a specified airfield.")
-    parser.add_argument("airfield_name", type=str, help="The name of the airfield (e.g., 'Unterwössen').")
+    parser.add_argument("airfield_name", type=str, help="Name of the airfield to search for.")
+    parser.add_argument("--debug", action="store_true", help="Enable debug output for API calls.")
     args = parser.parse_args()
 
     airfield_name = args.airfield_name
-    airfield_id = get_airfield_id(airfield_name)
+    debug_mode = args.debug
+    airfield_id = get_airfield_id(airfield_name, debug=debug_mode)
     if airfield_id:
         console.print(f"Found airfield ID for '[bold green]{airfield_name}[/bold green]': {airfield_id}")
         all_flights = []
         skip = 0
         limit = 100
         while True:
-            flights = list_flights(airfield_id, skip=skip, limit=limit)
+            flights = list_flights(airfield_id, skip=skip, limit=limit, debug=debug_mode)
             if flights:
                 all_flights.extend(flights)
                 skip += limit
