@@ -70,11 +70,40 @@ if __name__ == "__main__":
             # Sort years chronologically
             sorted_years = sorted(yearly_monthly_max_distance.keys())
 
+            # Determine min and max distances for color scaling
+            all_distances = [dist for year_data in yearly_monthly_max_distance.values() for dist in year_data.values()]
+            min_distance = min(all_distances) if all_distances else 0
+            max_distance = max(all_distances) if all_distances else 0
+
+            def get_distance_color(distance):
+                if distance == "N/A":
+                    return "dim"
+                
+                distance = int(distance)
+                if max_distance == min_distance:
+                    return "white"
+                
+                # Simple linear scaling for color intensity
+                # You can adjust these thresholds and colors as needed
+                range_size = max_distance - min_distance
+                if range_size == 0:
+                    return "white"
+
+                normalized_distance = (distance - min_distance) / range_size
+
+                if normalized_distance < 0.33:
+                    return "red"
+                elif normalized_distance < 0.66:
+                    return "yellow"
+                else:
+                    return "green"
+
             for year in sorted_years:
                 row_data = [year]
                 for month_num in range(1, 13):
                     distance = yearly_monthly_max_distance[year].get(month_num, "N/A")
-                    row_data.append(str(distance))
+                    colored_distance = f"[{get_distance_color(distance)}]{distance}[/]"
+                    row_data.append(colored_distance)
                 table.add_row(*row_data)
             
             console.print(table)
