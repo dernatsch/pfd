@@ -1,6 +1,7 @@
 
 import httpx
 import json
+import argparse
 from rich.console import Console
 from rich.table import Table
 
@@ -26,7 +27,12 @@ def list_flights(airfield_id, skip=0, limit=100):
 
 if __name__ == "__main__":
     console = Console()
-    airfield_name = "Unterwössen"
+
+    parser = argparse.ArgumentParser(description="List flights from a specified airfield.")
+    parser.add_argument("airfield_name", type=str, help="The name of the airfield (e.g., 'Unterwössen').")
+    args = parser.parse_args()
+
+    airfield_name = args.airfield_name
     airfield_id = get_airfield_id(airfield_name)
     if airfield_id:
         console.print(f"Found airfield ID for '[bold green]{airfield_name}[/bold green]': {airfield_id}")
@@ -42,7 +48,6 @@ if __name__ == "__main__":
                 break
         
         if all_flights:
-            console.print("[bold blue]All flights from Unterwössen:[/bold blue]") 
             table = Table(show_header=True, header_style="bold magenta")
             
             # Define month names for table headers
