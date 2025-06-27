@@ -2,10 +2,11 @@
 import httpx
 import json
 import argparse
+import asyncio
 from rich.console import Console
 from rich.table import Table
 
-def get_airfield_id(airfield_name, debug=False):
+async def get_airfield_id(airfield_name, debug=False):
     search_url = "https://api.weglide.org/v1/search"
     search_payload = {
         "search_items": [{"key": "name", "value": airfield_name}],
@@ -13,7 +14,8 @@ def get_airfield_id(airfield_name, debug=False):
     }
     if debug:
         print(f"DEBUG: Calling {search_url} with payload: {json.dumps(search_payload)}")
-    response = httpx.post(search_url, json=search_payload)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(search_url, json=search_payload)
     if debug:
         print(f"DEBUG: Response status: {response.status_code}")
         print(f"DEBUG: Response body: {response.text}")
@@ -23,11 +25,12 @@ def get_airfield_id(airfield_name, debug=False):
             return results[0]['id']
     return None
 
-def list_flights(airfield_id, skip=0, limit=100, debug=False):
+async def list_flights(airfield_id, skip=0, limit=100, debug=False):
     flights_url = f"https://api.weglide.org/v1/flight?airport_id_in={airfield_id}&skip={skip}&limit={limit}"
     if debug:
         print(f"DEBUG: Calling {flights_url}")
-    response = httpx.get(flights_url)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(flights_url)
     if debug:
         print(f"DEBUG: Response status: {response.status_code}")
         print(f"DEBUG: Response body: {response.text}")
@@ -35,7 +38,7 @@ def list_flights(airfield_id, skip=0, limit=100, debug=False):
         return response.json()
     return None
 
-if __name__ == "__main__":
+async def main():
     console = Console()
 
     parser = argparse.ArgumentParser(description="List flights from a specified airfield.")
@@ -47,14 +50,14 @@ if __name__ == "__main__":
     airfield_name = args.airfield_name
     percentile_value = args.percentile
     debug_mode = args.debug
-    airfield_id = get_airfield_id(airfield_name, debug=debug_mode)
+    airfield_id = await get_airfield_id(airfield_name, debug=debug_mode)
     if airfield_id:
         console.print(f"Found airfield ID for '[bold green]{airfield_name}[/bold green]': {airfield_id}")
         all_flights = []
         skip = 0
         limit = 100
         while True:
-            flights = list_flights(airfield_id, skip=skip, limit=limit, debug=debug_mode)
+            flights = await list_flights(airfield_id, skip=skip, limit=limit, debug=debug_mode)
             if flights:
                 all_flights.extend(flights)
                 skip += limit
@@ -150,3 +153,6 @@ if __name__ == "__main__":
             console.print("Could not retrieve flights.")
     else:
         console.print(f"Could not find airfield ID for '[bold red]{airfield_name}[/bold red]'.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
