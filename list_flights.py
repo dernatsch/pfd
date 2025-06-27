@@ -40,10 +40,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="List flights from a specified airfield.")
     parser.add_argument("airfield_name", type=str, help="Name of the airfield to search for.")
+    parser.add_argument("--percentile", type=int, default=100, help="Percentile of distances to show (e.g., 50 for median, 100 for max).")
     parser.add_argument("--debug", action="store_true", help="Enable debug output for API calls.")
     args = parser.parse_args()
 
     airfield_name = args.airfield_name
+    percentile_value = args.percentile
     debug_mode = args.debug
     airfield_id = get_airfield_id(airfield_name, debug=debug_mode)
     if airfield_id:
@@ -68,7 +70,7 @@ if __name__ == "__main__":
             for month_name in month_names:
                 table.add_column(month_name, justify="right")
 
-            yearly_monthly_max_distance = {}
+            yearly_monthly_distances = {}
 
             for flight in all_flights:
                 takeoff_time_str = flight.get('takeoff_time')
@@ -78,19 +80,38 @@ if __name__ == "__main__":
                     distance = flight.get('contest', {}).get('distance')
 
                     if distance is not None:
-                        if year not in yearly_monthly_max_distance:
-                            yearly_monthly_max_distance[year] = {}
+                        if year not in yearly_monthly_distances:
+                            yearly_monthly_distances[year] = {}
                         
-                        if month_num not in yearly_monthly_max_distance[year] or distance > yearly_monthly_max_distance[year][month_num]:
-                            yearly_monthly_max_distance[year][month_num] = distance
+                        if month_num not in yearly_monthly_distances[year]:
+                            yearly_monthly_distances[year][month_num] = []
+                        yearly_monthly_distances[year][month_num].append(distance)
             
             # Sort years chronologically
-            sorted_years = sorted(yearly_monthly_max_distance.keys())
+            sorted_years = sorted(yearly_monthly_distances.keys())
 
-            # Determine min and max distances for color scaling
-            all_distances = [dist for year_data in yearly_monthly_max_distance.values() for dist in year_data.values()]
-            min_distance = min(all_distances) if all_distances else 0
-            max_distance = max(all_distances) if all_distances else 0
+            def calculate_percentile(data, percentile):
+                if not data:
+                    return "N/A"
+                sorted_data = sorted(data)
+                k = (len(sorted_data) - 1) * percentile / 100
+                f = int(k)
+                c = k - f
+                if f + 1 < len(sorted_data):
+                    return int(sorted_data[f] + (sorted_data[f+1] - sorted_data[f]) * c)
+                else:
+                    return int(sorted_data[f])
+
+            # Determine min and max distances for color scaling based on the chosen percentile
+            all_percentile_distances = []
+            for year_data in yearly_monthly_distances.values():
+                for month_data in year_data.values():
+                    percentile_dist = calculate_percentile(month_data, percentile_value)
+                    if percentile_dist != "N/A":
+                        all_percentile_distances.append(percentile_dist)
+
+            min_distance = min(all_percentile_distances) if all_percentile_distances else 0
+            max_distance = max(all_percentile_distances) if all_percentile_distances else 0
 
             def get_distance_color(distance):
                 if distance == "N/A":
@@ -118,8 +139,9 @@ if __name__ == "__main__":
             for year in sorted_years:
                 row_data = [year]
                 for month_num in range(1, 13):
-                    distance = yearly_monthly_max_distance[year].get(month_num, "N/A")
-                    colored_distance = f"[{get_distance_color(distance)}]{distance}[/]"
+                    distances_for_month = yearly_monthly_distances[year].get(month_num, [])
+                    percentile_dist = calculate_percentile(distances_for_month, percentile_value)
+                    colored_distance = f"[{get_distance_color(percentile_dist)}]{percentile_dist}[/]"
                     row_data.append(colored_distance)
                 table.add_row(*row_data)
             
