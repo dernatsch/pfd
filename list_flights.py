@@ -44,15 +44,38 @@ if __name__ == "__main__":
         if all_flights:
             console.print("[bold blue]All flights from Unterwössen:[/bold blue]") 
             table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("Date", style="dim", width=12)
-            table.add_column("Aircraft")
-            table.add_column("Distance (km)", justify="right")
+            
+            # Define month names for table headers
+            month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            table.add_column("Year", style="dim", width=6)
+            for month_name in month_names:
+                table.add_column(month_name, justify="right")
+
+            yearly_monthly_max_distance = {}
 
             for flight in all_flights:
-                date = flight.get('takeoff_time', 'N/A').split('T')[0]
-                aircraft = flight.get('aircraft', {}).get('name', 'N/A')
-                distance = flight.get('contest', {}).get('distance', 'N/A')
-                table.add_row(date, aircraft, str(distance))
+                takeoff_time_str = flight.get('takeoff_time')
+                if takeoff_time_str and takeoff_time_str != 'N/A':
+                    year = takeoff_time_str[:4]  # "YYYY-MM-DDTHH:MM:SSZ" -> "YYYY"
+                    month_num = int(takeoff_time_str[5:7])  # "YYYY-MM-DDTHH:MM:SSZ" -> MM
+                    distance = flight.get('contest', {}).get('distance')
+
+                    if distance is not None:
+                        if year not in yearly_monthly_max_distance:
+                            yearly_monthly_max_distance[year] = {}
+                        
+                        if month_num not in yearly_monthly_max_distance[year] or distance > yearly_monthly_max_distance[year][month_num]:
+                            yearly_monthly_max_distance[year][month_num] = distance
+            
+            # Sort years chronologically
+            sorted_years = sorted(yearly_monthly_max_distance.keys())
+
+            for year in sorted_years:
+                row_data = [year]
+                for month_num in range(1, 13):
+                    distance = yearly_monthly_max_distance[year].get(month_num, "N/A")
+                    row_data.append(str(distance))
+                table.add_row(*row_data)
             
             console.print(table)
         else:
