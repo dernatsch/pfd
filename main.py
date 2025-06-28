@@ -4,13 +4,25 @@ import asyncio
 from rich.console import Console
 from rich.table import Table
 
+
 async def main():
     console = Console()
 
-    parser = argparse.ArgumentParser(description="List flights from a specified airfield.")
-    parser.add_argument("airfield_name", type=str, help="Name of the airfield to search for.")
-    parser.add_argument("--percentile", type=int, default=100, help="Percentile of distances to show (e.g., 50 for median, 100 for max).")
-    parser.add_argument("--debug", action="store_true", help="Enable debug output for API calls.")
+    parser = argparse.ArgumentParser(
+        description="List flights from a specified airfield."
+    )
+    parser.add_argument(
+        "airfield_name", type=str, help="Name of the airfield to search for."
+    )
+    parser.add_argument(
+        "--percentile",
+        type=int,
+        default=100,
+        help="Percentile of distances to show (e.g., 50 for median, 100 for max).",
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Enable debug output for API calls."
+    )
     args = parser.parse_args()
 
     airfield_name = args.airfield_name
@@ -19,29 +31,48 @@ async def main():
 
     airfield_id = await get_airfield_id(airfield_name, debug=debug_mode)
     if not airfield_id:
-        console.print(f"Could not find airfield ID for '[bold red]{airfield_name}[/bold red]'.")
+        console.print(
+            f"Could not find airfield ID for '[bold red]{airfield_name}[/bold red]'."
+        )
         return
 
-    console.print(f"Found airfield ID for '[bold green]{airfield_name}[/bold green]': {airfield_id}")
+    console.print(
+        f"Found airfield ID for '[bold green]{airfield_name}[/bold green]': {airfield_id}"
+    )
     all_flights = []
     skip = 0
     limit = 100
     while True:
-        flights = await list_flights(airfield_id, skip=skip, limit=limit, debug=debug_mode)
+        flights = await list_flights(
+            airfield_id, skip=skip, limit=limit, debug=debug_mode
+        )
         if flights:
             all_flights.extend(flights)
             skip += limit
         else:
             break
-    
+
     if not all_flights:
         console.print("Could not retrieve flights.")
         return
 
     table = Table(show_header=True, header_style="bold magenta")
-    
+
     # Define month names for table headers
-    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month_names = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
     table.add_column("Year", style="dim", width=6)
     for month_name in month_names:
         table.add_column(month_name, justify="right")
@@ -49,20 +80,20 @@ async def main():
     yearly_monthly_distances = {}
 
     for flight in all_flights:
-        takeoff_time_str = flight.get('takeoff_time')
-        if takeoff_time_str and takeoff_time_str != 'N/A':
+        takeoff_time_str = flight.get("takeoff_time")
+        if takeoff_time_str and takeoff_time_str != "N/A":
             year = takeoff_time_str[:4]  # "YYYY-MM-DDTHH:MM:SSZ" -> "YYYY"
             month_num = int(takeoff_time_str[5:7])  # "YYYY-MM-DDTHH:MM:SSZ" -> MM
-            distance = flight.get('contest', {}).get('distance')
+            distance = flight.get("contest", {}).get("distance")
 
             if distance is not None:
                 if year not in yearly_monthly_distances:
                     yearly_monthly_distances[year] = {}
-                
+
                 if month_num not in yearly_monthly_distances[year]:
                     yearly_monthly_distances[year][month_num] = []
                 yearly_monthly_distances[year][month_num].append(distance)
-    
+
     # Sort years chronologically
     sorted_years = sorted(yearly_monthly_distances.keys())
 
@@ -74,7 +105,7 @@ async def main():
         f = int(k)
         c = k - f
         if f + 1 < len(sorted_data):
-            return int(sorted_data[f] + (sorted_data[f+1] - sorted_data[f]) * c)
+            return int(sorted_data[f] + (sorted_data[f + 1] - sorted_data[f]) * c)
         else:
             return int(sorted_data[f])
 
@@ -92,11 +123,11 @@ async def main():
     def get_distance_color(distance):
         if distance == "N/A":
             return "dim"
-        
+
         distance = int(distance)
         if max_distance == min_distance:
             return "white"
-        
+
         # Simple linear scaling for color intensity
         # You can adjust these thresholds and colors as needed
         range_size = max_distance - min_distance
@@ -116,12 +147,17 @@ async def main():
         row_data = [year]
         for month_num in range(1, 13):
             distances_for_month = yearly_monthly_distances[year].get(month_num, [])
-            percentile_dist = calculate_percentile(distances_for_month, percentile_value)
-            colored_distance = f"[{get_distance_color(percentile_dist)}]{percentile_dist}[/]"
+            percentile_dist = calculate_percentile(
+                distances_for_month, percentile_value
+            )
+            colored_distance = (
+                f"[{get_distance_color(percentile_dist)}]{percentile_dist}[/]"
+            )
             row_data.append(colored_distance)
         table.add_row(*row_data)
-    
+
     console.print(table)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
